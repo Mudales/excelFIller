@@ -1,35 +1,61 @@
-function user2json {
+param (
+    [string[]] $Usernames,
+    [string] $UserListFile,
+    [switch] $ForceOverwrite
+)
+
+Write-Host "runing powershell script form powesrtshell`n`n`n`n"
+function Export-UserJson {
     param (
-        [Parameter(Mandatory = $true)]
         [string] $username
     )
-    # Check if the "json" folder exists
+
+    # Ensure json folder exists
     if (-not (Test-Path "json")) {
-        # If the "json" folder does not exist, create it
-        New-Item -Path "json" -ItemType Directory -Force
+        New-Item -Path "json" -ItemType Directory -Force | Out-Null
     }
+
     $outputFilePath = "json\\$username.json"
 
-    # Get AD users and select the desired properties
-    $user = Get-ADUser $username -Properties GivenName, Surname, UserPrincipalName, SamAccountName, telephoneassistant, mail | 
-        Select-Object GivenName, Surname, UserPrincipalName, SamAccountName, telephoneassistant, mail 
+    if (-not $ForceOverwrite -and (Test-Path $outputFilePath)) {
+        Write-Host " Skipping '$username': JSON already exists at $outputFilePath" -ForegroundColor Yellow
+        return
+    }
 
-    # Convert the users to JSON format
-    $jsonData = $user | ConvertTo-Json -Depth 2
+    try {
+        $user = Get-ADUser $username -Properties GivenName, Surname, UserPrincipalName, SamAccountName, telephoneassistant, mail |
+            Select-Object GivenName, Surname, UserPrincipalName, SamAccountName, telephoneassistant, mail
 
-    # Save the JSON data to a file
-    $jsonData | Out-File -FilePath $outputFilePath -Encoding utf8
+        if ($null -eq $user) {
+            Write-Host " User '$username' not found in AD." -ForegroundColor Red
+            return
+        }
 
-    Write-Host "AD user data saved to $outputFilePath"
+        $jsonData = $user | ConvertTo-Json -Depth 2
+        $jsonData | Out-File -FilePath $outputFilePath -Encoding utf8
+        Write-Host " Exported $username to $outputFilePath"
+    } catch {
+        Write-Host " Error processing user '$username': $_" -ForegroundColor Red
+    }
+}  # <-- Closing brace for Export-UserJson
+
+# Main Execution Block
+if ($UserListFile) {
+    Write-Host "the userlist: $UserListFile" 
+    if (-Not (Test-Path $UserListFile)) {
+        Write-Host " User list file '$UserListFile' not found." -ForegroundColor Red
+        exit 1
+    }
+
+    $Usernames = Get-Content -Path $UserListFile | Where-Object { $_.Trim() -ne "" }
 }
 
-# This block executes when the script is run from the command line.
-# It checks for the username parameter and calls the function with that username.
-if ($args.Count -gt 0) {
-    # The first argument is the username
-    $username = $args[0]
-    # Call the function with the provided username
-    user2json -username $username
+if ($Usernames) {
+    foreach ($user in $Usernames) {
+        Export-UserJson -username $user
+    }
 } else {
-    Write-Host "Please provide a username as a command-line argument."
+    Write-Host " No users specified. Use -Usernames or -UserListFile." -ForegroundColor Red
+    exit 1
 }
+ 
