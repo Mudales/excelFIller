@@ -10,8 +10,7 @@ This tool automates the process of exporting Active Directory user data to JSON 
 
 ## 📁 Project Structure
 
-```
-excelFiller/
+```excelFiller/
 │
 ├── main.py                # Python script that drives the whole process
 ├── user2json.ps1          # PowerShell script to fetch AD user data
