@@ -1,4 +1,3 @@
-Absolutely! Here's a `README.md` file you can include with your project:
 
 ---
 
